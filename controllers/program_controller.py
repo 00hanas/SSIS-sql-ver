@@ -3,7 +3,7 @@ from views.addProgram_view import Ui_ProgramForm
 from PyQt6.QtWidgets import QDialog
 from controllers.CustomDialog import CustomDialog
 from controllers.college_controller import getCollegeCodes
-from utils.validators import uniqueProgram
+from utils.validators import uniqueProgram, uniqueEditProgram
 
 #Create
 class AddProgramForm(QDialog):
@@ -47,8 +47,7 @@ class AddProgramForm(QDialog):
             dialog.exec()
 
         from views.program_view import loadPrograms
-        loadPrograms(self.main_window.ui.tableWidget_2)
-
+        loadPrograms(self.main_window.ui.tableWidget_2, self.main_window.showEditProgram, self.main_window.deleteProgram)
 
 def addProgram(program):
     err = uniqueProgram(program[0])
@@ -66,21 +65,89 @@ def addProgram(program):
     cursor.close()
     conn.close()
 
+class EditProgramForm(QDialog):
+    def __init__(self, main_window, originalCode):
+        super().__init__(main_window)
+        self.ui = Ui_ProgramForm()
+        self.ui.setupUi(self)
+
+        self.main_window = main_window
+        self.originalCode = originalCode
+
+        self.populateColleges()
+
+        # Load existing program data
+        data = getProgramByCode(originalCode)
+        if not data:
+            dialog = CustomDialog("Error", "Program not found.")
+            dialog.exec()
+            return
+        
+        self.ui.lineEdit_2.setText(data["programCode"])
+        self.ui.lineEdit_3.setText(data["programName"])
+        self.ui.comboBox.setCurrentText(data["collegeCode"])
+
+        # Connect Save button to save function
+        self.ui.pushButton.clicked.connect(self.saveProgram)
+
+    def populateColleges(self):
+        collegeCode = getCollegeCodes()
+        self.ui.comboBox.addItems(collegeCode)
+
+    def saveProgram(self):
+        programCode = self.ui.lineEdit_2.text().strip()
+        programName = self.ui.lineEdit_3.text().strip()
+        collegeCode = self.ui.comboBox.currentText().strip()
+        
+        err = uniqueEditProgram(programCode, self.originalCode)
+        if err:
+            dialog = CustomDialog("Validation Error", err)
+            dialog.exec()
+            return
+
+        if not collegeCode or not programCode or not programName:
+            dialog = CustomDialog("Input Error", "Please fill in all required fields.")
+            dialog.exec()
+            return
+        
+        data = {
+            "programCode": programCode,
+            "programName": programName,
+            "collegeCode": collegeCode
+        }
+
+        try:
+            updateProgram(self.originalCode, data)
+            dialog = CustomDialog("Success", "Program updated successfully.")
+            dialog.exec()
+
+            self.close()
+        except Exception as e:
+            dialog = CustomDialog("Error", f"Failed to update program: {e}")
+            dialog.exec()
+
+        from views.program_view import loadPrograms
+        from views.student_view import loadStudents
+        loadPrograms(self.main_window.ui.tableWidget_2, self.main_window.showEditProgram, self.main_window.deleteProgram)
+        loadStudents(self.main_window.ui.tableWidget, self.main_window.showEditStudent, self.main_window.deleteStudent)
+        
+        
 #Update
-def updateProgram(programCode, updatedData):
+def updateProgram(ogprogramCode, updatedData):
     try:
         conn = getConnection()
         cursor = conn.cursor()
 
         sql = """
         UPDATE program
-        SET name = %s, college_code = %s
-        WHERE code = %s
+        SET programCode = %s, programName = %s, collegeCode = %s
+        WHERE programCode = %s
         """
         values = (
-            updatedData["Program Name"],
-            updatedData["College Code"],
-            programCode
+            updatedData["programCode"],
+            updatedData["programName"],
+            updatedData["collegeCode"],
+            ogprogramCode
         )
         cursor.execute(sql, values)
         conn.commit()
@@ -92,10 +159,11 @@ def updateProgram(programCode, updatedData):
         return False
     
 #Delete
-def deleteProgram(programCode):
+def deleteProgrambyID(programCode):
     try:
-        conn, cursor = getConnection()
-        sql = "DELETE FROM program WHERE code = %s"
+        conn = getConnection()
+        cursor = conn.cursor()
+        sql = "DELETE FROM program WHERE programCode = %s"
         cursor.execute(sql, (programCode,))
         conn.commit()
         cursor.close()
@@ -130,3 +198,22 @@ def getProgramCodes():
     except Exception as e:
         print(f"[getProgramCodes] Error: {e}")
         return []
+    
+def getProgramByCode(program_code: str) -> dict | None:
+    try:
+        conn = getConnection()
+        cursor = conn.cursor(dictionary=True)
+        cursor.execute("""
+            SELECT programCode AS programCode,
+                   programName AS programName,
+                   collegeCode AS collegeCode
+            FROM program
+            WHERE programCode = %s
+        """, (program_code,))
+        row = cursor.fetchone()
+        cursor.close()
+        conn.close()
+        return row
+    except Exception as e:
+        print(f"[getProgramByCode] Error: {e}")
+        return None
