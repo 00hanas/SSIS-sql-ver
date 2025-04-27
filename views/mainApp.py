@@ -8,6 +8,8 @@ from controllers.student_controller import AddStudentForm
 from controllers.student_controller import EditStudentForm, deleteStudentbyID
 from controllers.program_controller import AddProgramForm, EditProgramForm, deleteProgrambyID
 from controllers.college_controller import AddCollegeForm, EditCollegeForm, deleteCollegebyID
+from controllers.sortFunction import sortTable
+from controllers.searchFunction import searchTable
 from controllers.CustomDialog import CustomDialog, ConfirmDialog
 
 class MainApp(QMainWindow):
@@ -39,6 +41,30 @@ class MainApp(QMainWindow):
 
         #Add button for College page   
         self.ui.pushButton_12.clicked.connect(self.show_addCollege)
+
+        #Sort Student table
+        self.ui.comboBox_2.currentTextChanged.connect(self.studentSort)
+        self.ui.comboBox_3.currentTextChanged.connect(self.studentSort)
+
+        #Sort Program table
+        self.ui.comboBox_4.currentTextChanged.connect(self.programSort)
+        self.ui.comboBox_5.currentTextChanged.connect(self.programSort)
+
+        #Sort College table
+        self.ui.comboBox_7.currentTextChanged.connect(self.collegeSort)
+        self.ui.comboBox_8.currentTextChanged.connect(self.collegeSort)
+
+        # Connect search for Students page
+        self.ui.lineEdit.textChanged.connect(lambda: searchTable(self.ui.tableWidget, self.ui.lineEdit, self.ui.comboBox))  
+        self.ui.comboBox.currentTextChanged.connect(lambda: searchTable(self.ui.tableWidget, self.ui.lineEdit, self.ui.comboBox))  
+
+        # Connect search for Programs page
+        self.ui.lineEdit_2.textChanged.connect(lambda: searchTable(self.ui.tableWidget_2, self.ui.lineEdit_2, self.ui.comboBox_6))  
+        self.ui.comboBox_6.currentTextChanged.connect(lambda: searchTable(self.ui.tableWidget_2, self.ui.lineEdit_2, self.ui.comboBox_6))  
+
+        # Connect search for Colleges page
+        self.ui.lineEdit_3.textChanged.connect(lambda: searchTable(self.ui.tableWidget_3, self.ui.lineEdit_3, self.ui.comboBox_9))  
+        self.ui.comboBox_9.currentTextChanged.connect(lambda: searchTable(self.ui.tableWidget_3, self.ui.lineEdit_3, self.ui.comboBox_9))
 
 
         # Load tables with MySQL data
@@ -188,6 +214,26 @@ class MainApp(QMainWindow):
         else:
             CustomDialog("Error", f"Could not delete college '{college_code}'. Please try again.", parent=self).exec()
     
+    def studentSort(self):
+        columnName = self.ui.comboBox_2.currentText()
+        ascending = self.ui.comboBox_3.currentText() == "Ascending"
+
+        sortTable(self.ui.tableWidget, columnName, ascending)
+
+    def programSort(self):
+        
+        columnName = self.ui.comboBox_4.currentText()  # Get selected column
+        ascending = self.ui.comboBox_5.currentText() == "Ascending"  # Check sort order
+
+        sortTable(self.ui.tableWidget_2, columnName, ascending)
+    
+    def collegeSort(self):
+        
+        columnName = self.ui.comboBox_7.currentText()  # Get selected column
+        ascending = self.ui.comboBox_8.currentText() == "Ascending"  # Check sort order
+
+        sortTable(self.ui.tableWidget_3, columnName, ascending)
+
 if __name__ == "__main__":
     app = QApplication(sys.argv)
     window = MainApp()
